@@ -245,7 +245,7 @@
                   }
                ],
                "size" : 26544911,
-               "checksum" : "SHA-256:a19413dc375b1f8427f643444e23ed2bda3242c5089ee461c1b135893b256702",
+               "checksum" : "SHA-256:92c41c2915483307ffccb5027cc2f407ca2d6e0ce567112150808d4b7f5a9f75",
                "architecture" : "EFM32",
                "url" : "https://github.com/jp112sdl/ARDUINO_EFM32/raw/master/package/ARDUINO_EFM32-2026.9.7.tar.gz",
                "archiveFileName" : "ARDUINO_EFM32-2022.8.11.tar.gz",
