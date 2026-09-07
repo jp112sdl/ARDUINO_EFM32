@@ -30,8 +30,8 @@
 
 MEMORY
 {
-  FLASH (rx) : ORIGIN = 0x00000000, LENGTH = 131072
-  RAM (rwx)  : ORIGIN = 0x20000000, LENGTH = 16384
+  FLASH (rx) : ORIGIN = 0x00000000, LENGTH = 16384
+  RAM (rwx)  : ORIGIN = 0x20000000, LENGTH = 8192
 }
 
 /* Linker script to place sections and symbol values. Should be used together
@@ -66,6 +66,21 @@ MEMORY
  *   __stack
  */
 ENTRY(Reset_Handler)
+
+/* Reserved memory, enforced at link time.
+ *
+ * Both sections used to be empty, which made the "region RAM overflowed"
+ * ASSERT below trivially true: nothing checked that any stack or heap space
+ * was left after .data and .bss. __STACK_SIZE is a hard reservation the heap
+ * can never grow into (see _sbrk() in syscalls.c); __HEAP_SIZE is only a
+ * guaranteed minimum - the heap still grows dynamically through whatever RAM
+ * is free between __HeapLimit and __StackLimit.
+ *
+ * Override per sketch with e.g.
+ *   -Wl,--defsym=__STACK_SIZE=0x600 -Wl,--defsym=__HEAP_SIZE=0x800
+ */
+__STACK_SIZE = DEFINED(__STACK_SIZE) ? __STACK_SIZE : 0x400;
+__HEAP_SIZE  = DEFINED(__HEAP_SIZE)  ? __HEAP_SIZE  : 0x200;
 
 SECTIONS
 {
@@ -255,6 +270,7 @@ SECTIONS
     __end__ = .;
     end = __end__;
     _end = __end__;
+    . = . + __HEAP_SIZE;
     KEEP(*(.heap*))
     __HeapLimit = .;
   } > RAM
@@ -264,6 +280,9 @@ SECTIONS
    * values to stack symbols later */
    .stack_dummy (COPY):
   {
+    /* no ALIGN() here: it would count towards SIZEOF(.stack_dummy) and push
+       __StackLimit off an 8-byte boundary. __StackTop is already aligned. */
+    . = . + __STACK_SIZE;
     KEEP(*(.stack*))
   } > RAM
 
@@ -274,7 +293,7 @@ SECTIONS
   PROVIDE(__stack = __StackTop);
 
   /* Check if data + heap + stack exceeds RAM limit */
-  ASSERT(__StackLimit >= __HeapLimit, "region RAM overflowed with stack")
+  ASSERT(__StackLimit >= __HeapLimit, "RAM overflow: .data + .bss + __HEAP_SIZE + __STACK_SIZE exceed the available SRAM")
 
   /* Check if FLASH usage exceeds FLASH size */
   ASSERT( LENGTH(FLASH) >= (__etext + SIZEOF(.data)), "FLASH memory overflowed !")

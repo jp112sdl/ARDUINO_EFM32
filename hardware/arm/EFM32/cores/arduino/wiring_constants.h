@@ -26,10 +26,16 @@ extern "C"{
 #define LOW  0x0
 #define HIGH 0x1
 
-#define INPUT         gpioModeInput
-#define OUTPUT        gpioModePushPull
-#define OUTPUT_OD     gpioModeWiredAndPullUp
-#define INPUT_PULLUP  gpioModeInputPull
+/* pinMode() passes these straight to GPIO_PinModeSet(), so any other
+ * GPIO_Mode_TypeDef value works too. INPUT_PULLUP and INPUT_PULLDOWN share
+ * one hardware mode and are told apart by DOUT, hence the extra bit - it is
+ * masked off again in pinMode(). */
+#define INPUT           gpioModeInput
+#define OUTPUT          gpioModePushPull
+#define OUTPUT_OD       gpioModeWiredAndPullUp
+#define INPUT_PULLUP    gpioModeInputPull
+#define INPUT_PULLDOWN  (0x100 | gpioModeInputPull)
+#define GPIO_MODE_MASK  0x0ff
 
 //#define true 0x1
 //#define false 0x0
@@ -66,9 +72,16 @@ enum BitOrder {
   #define max(a,b) ((a)>(b)?(a):(b))
 #endif // max
 
-#ifdef abs
-  #define abs(x) ((x)>0?(x):-(x))
-#endif // abs
+/* No abs() macro here on purpose.
+ *
+ * This used to read `#ifdef abs / #define abs(x) ... / #endif`, i.e. it only
+ * defined the macro if one already existed - so it never did anything. That
+ * is harmless: sketches are C++, where <cmath>/<cstdlib> provide abs()
+ * overloads for float and double, and abs(-1.5) already returns 1.5 (checked
+ * against this toolchain). Restoring the classic Arduino macro would replace
+ * those working overloads with one that evaluates its argument twice, so
+ * abs(i++) would break. In C code abs() is int-only by definition - use
+ * fabs()/fabsf() there. */
 #define constrain(amt,low,high) ((amt)<(low)?(low):((amt)>(high)?(high):(amt)))
 #define round(x)     ((x)>=0?(long)((x)+0.5):(long)((x)-0.5))
 #define radians(deg) ((deg)*DEG_TO_RAD)

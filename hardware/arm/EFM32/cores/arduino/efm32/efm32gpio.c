@@ -22,37 +22,42 @@
 extern "C" {
 #endif
 
+/* g_Pin2PortMapArray has NUM_DIGITAL_PINS entries. None of these functions
+ * used to range-check, so an out-of-range pin read a port/pin pair from
+ * whatever followed the table and then drove a random GPIO. */
+
 extern void pinMode(uint8_t ucPin, uint32_t u32Mode )
 {
+  unsigned int out;
+
+  if (ucPin >= NUM_DIGITAL_PINS) return;
+
+  /* DOUT picks pull-up vs pull-down for gpioModeInputPull, and the idle level
+   * for the wired-and/wired-or modes. */
   switch ( u32Mode )
   {
-    case INPUT:
-      GPIO_PinModeSet(g_Pin2PortMapArray[ucPin].GPIOx_Port,
-                      g_Pin2PortMapArray[ucPin].Pin_abstraction,
-                      gpioModeInput, 0);
-      break ;
-
     case INPUT_PULLUP:
-      GPIO_PinModeSet(g_Pin2PortMapArray[ucPin].GPIOx_Port,
-                      g_Pin2PortMapArray[ucPin].Pin_abstraction,
-                      gpioModeInputPull, 1);
-      break ;
-
-    case OUTPUT:
-      GPIO_PinModeSet(g_Pin2PortMapArray[ucPin].GPIOx_Port,
-                      g_Pin2PortMapArray[ucPin].Pin_abstraction,
-                      gpioModePushPull, 0);
-      break ;
-    case gpioModeDisabled:
-      GPIO_PinModeSet(g_Pin2PortMapArray[ucPin].GPIOx_Port,
-                      g_Pin2PortMapArray[ucPin].Pin_abstraction,
-                      gpioModeDisabled, 0);
-      break ;
+    case OUTPUT_OD:
+      out = 1;
+      break;
+    default:
+      out = 0;
+      break;
   }
+
+  /* Passed through rather than switched on, so every GPIO_Mode_TypeDef works.
+   * The old switch silently ignored anything but INPUT/INPUT_PULLUP/OUTPUT/
+   * gpioModeDisabled - OUTPUT_OD was accepted by the compiler and then did
+   * nothing at all. */
+  GPIO_PinModeSet(g_Pin2PortMapArray[ucPin].GPIOx_Port,
+                  g_Pin2PortMapArray[ucPin].Pin_abstraction,
+                  (GPIO_Mode_TypeDef)(u32Mode & GPIO_MODE_MASK), out);
 }
 
 extern void digitalWrite( uint8_t ucPin, uint8_t u32Val )
 {
+  if (ucPin >= NUM_DIGITAL_PINS) return;
+
   if (u32Val) {
     GPIO_PinOutSet(g_Pin2PortMapArray[ucPin].GPIOx_Port, g_Pin2PortMapArray[ucPin].Pin_abstraction);
   } else {
@@ -62,19 +67,25 @@ extern void digitalWrite( uint8_t ucPin, uint8_t u32Val )
 
 extern int digitalRead(uint8_t ucPin )
 {
-  /* can add a section here to see if pin is readable */
+  if (ucPin >= NUM_DIGITAL_PINS) return LOW;
+
   return bitRead(GPIO_PortInGet(g_Pin2PortMapArray[ucPin].GPIOx_Port), g_Pin2PortMapArray[ucPin].Pin_abstraction);
 }
 
 extern void digitalToggle(uint8_t ucPin )
 {
-  /* can add a section here to see if pin is readable */
+  if (ucPin >= NUM_DIGITAL_PINS) return;
+
   GPIO_PinOutToggle(g_Pin2PortMapArray[ucPin].GPIOx_Port, g_Pin2PortMapArray[ucPin].Pin_abstraction);
 }
 
 extern uint32_t pulseIn(uint8_t ucPin, uint8_t ucState, uint32_t u32Timeout )
 {
-  uint32_t startMicros = micros();
+  uint32_t startMicros;
+
+  if (ucPin >= NUM_DIGITAL_PINS) return 0;
+
+  startMicros = micros();
 
   // wait for any previous pulse to end
   while (digitalRead(ucPin) == (int)ucState) {

@@ -44,9 +44,8 @@ EFM32G890.menu.cpu.32.upload.maximum_size=32768
 EFM32G890.menu.cpu.32.upload.maximum_data_size=8192
 
 EFM32G890.build.f_cpu=14000000L
-EFM32G890.menu.clock_source.hfrc32=HFRCO (32MHz)
-EFM32G890.menu.clock_source.hfrc32.build.osc=32000000L  -DUSE_HFRCO
-EFM32G890.menu.clock_source.hfrc32.build.f_cpu=32000000L -DOSC{build.osc}
+# No 32 MHz HFRCO band exists on EFM32G - the highest is 28 MHz. The removed
+# entry set F_CPU=32000000L while the part actually ran at 28 MHz.
 EFM32G890.menu.clock_source.hfrc28=HFRCO (28MHz)
 EFM32G890.menu.clock_source.hfrc28.build.osc=28000000L  -DUSE_HFRCO
 EFM32G890.menu.clock_source.hfrc28.build.f_cpu=28000000L -DOSC{build.osc}

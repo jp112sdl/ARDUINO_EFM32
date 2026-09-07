@@ -170,24 +170,52 @@ void GPIO_ODD_IRQHandler(void)
 
 uint8_t digitalPinToInterrupt(uint8_t ucPin) { return ucPin; }
 
+/* NOTE - hardware limitation, not something this code can work around:
+ * EFM32 series 0 has 16 external interrupt channels and the channel number is
+ * the *pin* number. The port is only selectable per group of four channels
+ * (EXTIPSELL/EXTIPSELH). Two pins with the same number on different ports -
+ * PA0 and PB0, say - cannot both be interrupt sources; the second
+ * attachInterrupt() reconfigures the channel and the first pin silently stops
+ * firing. Pick interrupt pins with distinct pin numbers. */
+
 void attachInterrupt(uint8_t ucPin, GPIOINT_IrqCallbackPtr_t callback, int mode){
-	uint8_t pin = g_Pin2PortMapArray[ucPin].Pin_abstraction;
+	uint8_t pin;
+
+	if (ucPin >= NUM_DIGITAL_PINS) return;
+	pin = g_Pin2PortMapArray[ucPin].Pin_abstraction;
+
 	GPIOINT_CallbackRegister(pin, callback);
 	GPIOINT_Init();
 	switch (mode){
 		case RISING:
-		  GPIO_ExtIntConfig(g_Pin2PortMapArray[ucPin].GPIOx_Port, pin, pin, true, 0, true);
+		  GPIO_ExtIntConfig(g_Pin2PortMapArray[ucPin].GPIOx_Port, pin, pin, true, 0, false);
 		  break;
-		case FALLING:  
-		  GPIO_ExtIntConfig(g_Pin2PortMapArray[ucPin].GPIOx_Port, pin, pin, 0, true, true);
+		case FALLING:
+		  GPIO_ExtIntConfig(g_Pin2PortMapArray[ucPin].GPIOx_Port, pin, pin, 0, true, false);
 		  break;
 		case CHANGE:
-		  GPIO_ExtIntConfig(g_Pin2PortMapArray[ucPin].GPIOx_Port, pin, pin, true, true,true);
+		  GPIO_ExtIntConfig(g_Pin2PortMapArray[ucPin].GPIOx_Port, pin, pin, true, true, false);
 		  break;
+		default:
+		  return;                  /* unknown mode: leave the pin alone */
 	}
+	/* Configure with the interrupt still disabled, drop whatever edge was
+	 * latched while the pin was being set up, and only then enable. Enabling
+	 * inside GPIO_ExtIntConfig() left a stale IF bit standing, so the handler
+	 * fired once immediately for an edge that never happened. */
+	GPIO_IntClear(1<<pin);
 	GPIO_IntEnable(1<<pin);
 }
 
 void detachInterrupt(uint8_t ucPin) {
-	GPIOINT_CallbackRegister(g_Pin2PortMapArray[ucPin].Pin_abstraction,0);
+	uint8_t pin;
+
+	if (ucPin >= NUM_DIGITAL_PINS) return;
+	pin = g_Pin2PortMapArray[ucPin].Pin_abstraction;
+
+	/* Dropping the callback alone left the channel enabled: the pin kept
+	 * generating interrupts that the dispatcher then threw away. */
+	GPIO_IntDisable(1<<pin);
+	GPIO_IntClear(1<<pin);
+	GPIOINT_CallbackRegister(pin, 0);
 }

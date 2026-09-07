@@ -11,7 +11,11 @@ version=1.8.5
 # STM compile variables
 # ----------------------
 
-compiler.warning_flags=-w 
+# Fallback used when no warning level is selected. Was "-w", which actively
+# suppressed every diagnostic - including the uninitialised-value and
+# sign-compare warnings that would have pointed at real bugs in this core.
+# Pick "More"/"All" in the IDE (or --warnings more) for -Wall/-Wextra.
+compiler.warning_flags={build.log_level}
 compiler.warning_flags.none=-w {build.log_level}
 compiler.warning_flags.default={build.log_level}
 compiler.warning_flags.more=-Wall {build.log_level}

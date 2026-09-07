@@ -18,7 +18,8 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
-#define MAX_STACK_SIZE 0x200
+/* The stack reservation now comes from the linker script (__STACK_SIZE /
+ * __StackLimit), so the old hard-coded MAX_STACK_SIZE is gone. */
 
 extern int __io_putchar(int ch) __attribute__((weak));
 extern int __io_getchar(void) __attribute__((weak));
@@ -34,26 +35,39 @@ __attribute__((weak))
 caddr_t _sbrk(int incr)
 {
 	extern char end asm("end");
+	extern char __StackLimit asm("__StackLimit");
 	static char *heap_end;
 	char *prev_heap_end;
+	char *limit;
 
 	if (heap_end == 0)
 		heap_end = &end;
 
 	prev_heap_end = heap_end;
 
-#if (FREERTOS >0)
-	char *min_stack_ptr;
-	/* Use the NVIC offset register to locate the main stack pointer. */
-	min_stack_ptr = (char*)(*(unsigned int *)*(unsigned int *)0xE000ED08);
-	/* Locate the STACK bottom address */
-	min_stack_ptr -= MAX_STACK_SIZE;
+	/* The linker reserves __STACK_SIZE bytes at the top of RAM; __StackLimit
+	 * is the bottom of that reservation. The old check compared against the
+	 * *current* stack pointer, which left no headroom whatsoever: the heap was
+	 * allowed to grow right up to where the stack happened to be at that
+	 * moment, and the next deeper call chain or interrupt frame then wrote
+	 * straight over freshly allocated memory. */
+	limit = &__StackLimit;
 
-	if (heap_end + incr > min_stack_ptr)
-#else
-	if (heap_end + incr > stack_ptr)
+#if (FREERTOS == 0)
+	/* Belt and braces: if the stack has already grown past its reservation,
+	 * do not hand out memory it is currently using. */
+	if (stack_ptr < limit)
+		limit = stack_ptr;
 #endif
-	{
+
+	if (incr < 0) {
+		/* newlib releases the top chunk this way; never fall below the start
+		 * of the heap. */
+		if (heap_end + incr < &end) {
+			errno = ENOMEM;
+			return (caddr_t) -1;
+		}
+	} else if (heap_end + incr > limit) {
 //		write(1, "Heap and stack collision\n", 25);
 //		abort();
 		errno = ENOMEM;

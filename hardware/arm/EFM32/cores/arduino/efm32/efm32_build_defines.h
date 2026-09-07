@@ -62,6 +62,65 @@
 #define  USE_BITBAND     1
 #endif
 
+/* Fault handling.
+ * USE_FAULT_RESET: reset the device after a fault instead of spinning in
+ * while(1) forever. A silent spin turns every fault into a permanent freeze
+ * that looks exactly like a hang; a reset gets the device running again and
+ * leaves a trace in RMU->RSTCAUSE. Suppressed automatically while a debugger
+ * is attached so faults can still be inspected. Set to 0 for the old
+ * spin-forever behaviour. */
+#ifndef USE_FAULT_RESET
+# define USE_FAULT_RESET  1
+#endif
+
+/* Crystal oscillators.
+ * HFXO_BOOST is the start-up drive current. The register reset value is
+ * 100 %; the old variant code lowered it to 50 %, which is the wrong
+ * direction on a start-up path - it saves a little current but makes the
+ * crystal less likely to come up. Lower it only for a crystal you have
+ * measured. HFXO_STARTUP_SPIN / LFXO_STARTUP_SPIN bound the wait for the
+ * oscillator so a missing or dead crystal falls back to the HFRCO instead of
+ * hanging inside init(). */
+#ifndef HFXO_BOOST
+# define HFXO_BOOST          CMU_CTRL_HFXOBOOST_100PCENT
+#endif
+#ifndef LFXO_BOOST
+# define LFXO_BOOST          CMU_CTRL_LFXOBOOST_100PCENT
+#endif
+#ifndef HFXO_STARTUP_SPIN
+# define HFXO_STARTUP_SPIN   2000000UL
+#endif
+#ifndef LFXO_STARTUP_SPIN
+# define LFXO_STARTUP_SPIN   4000000UL
+#endif
+#ifndef LFXO_FREQ
+# define LFXO_FREQ           32768UL
+#endif
+
+/* Watchdog (opt-in).
+ * When enabled, init() starts the WDOG and the main loop feeds it, as does
+ * delay(). A sketch that blocks longer than WDOG_PERIOD outside of delay()
+ * has to call wdogFeed() itself. Off by default because it changes the
+ * behaviour of existing sketches with long blocking sections.
+ * WDOG_PERIOD counts ULFRCO cycles at ~1 kHz, so wdogPeriod_2k is ~2 s. */
+#ifndef USE_WDOG
+# define USE_WDOG         0
+#endif
+#ifndef WDOG_PERIOD
+# define WDOG_PERIOD      wdogPeriod_2k
+#endif
+#ifndef WDOG_CLKSEL
+# define WDOG_CLKSEL      wdogClkSelULFRCO
+#endif
+/* Keep the counter stopped in EM2/EM3 by default: a sleeping sketch cannot
+ * feed the dog and would otherwise be reset by it. */
+#ifndef WDOG_EM2RUN
+# define WDOG_EM2RUN      0
+#endif
+#ifndef WDOG_EM3RUN
+# define WDOG_EM3RUN      0
+#endif
+
 #ifndef USE_CORECALLBACK
 #define USE_CORECALLBACK 0
 #endif
