@@ -22,11 +22,29 @@
 #include "Stream.h"
 #include "Print.h"
 
-#if !(defined(SERIAL_TX_BUFFER_SIZE) && defined(SERIAL_RX_BUFFER_SIZE))
+/* Independent guards. As one combined `#if !(defined(TX) && defined(RX))`,
+ * overriding just one of the two left the other undefined and the build broke
+ * on the first use. Powers of two keep the ring arithmetic to a mask. */
+#ifndef SERIAL_TX_BUFFER_SIZE
  #define SERIAL_TX_BUFFER_SIZE 32
+#endif
+#ifndef SERIAL_RX_BUFFER_SIZE
  #define SERIAL_RX_BUFFER_SIZE 256
 #endif
  
+/* Bounded waits. write()/flush() must never be able to hang the program: the
+ * TX interrupt that drains the ring cannot run while they execute inside an
+ * interrupt handler of equal or higher priority, nor with interrupts masked,
+ * so an unbounded spin there is a guaranteed deadlock. */
+#ifndef SERIAL_TX_TIMEOUT_MS
+# define SERIAL_TX_TIMEOUT_MS 250
+#endif
+/* Hard iteration backstop for the paths where the millisecond time base may
+ * itself be stalled, and for spins on peripheral status bits. */
+#ifndef SERIAL_TX_POLL_SPIN
+# define SERIAL_TX_POLL_SPIN  100000UL
+#endif
+
 #define SERIAL_8N1 0x06
 #define SERIAL_8N2 0x0E
 
@@ -55,9 +73,8 @@
 #ifndef SPI_BAUDRATE
 #define SPI_BAUDRATE            1000000
 #endif
-#ifndef SPI_PERCLK_FREQUENCY
-#define SPI_PERCLK_FREQUENCY    F_CPU
-#endif
+/* SPI_PERCLK_FREQUENCY is gone: the SPI divider is derived from the live
+ * HFPERCLK now, not from the compile-time F_CPU. */
 
 typedef enum {
 	USART_MODE_NONE    =   0,
@@ -84,10 +101,13 @@ typedef struct {
     volatile uint8_t  txEnd  =0;
 #endif
     uint8_t rxBuffer[SERIAL_RX_BUFFER_SIZE];
-#if (SERIAL_TX_BUFFER_SIZE >256)
+/* Was keyed off SERIAL_TX_BUFFER_SIZE - a copy-paste slip. With an RX buffer
+ * larger than 256 the indices stayed 8 bit, wrapped at 256 and corrupted the
+ * ring. */
+#if (SERIAL_RX_BUFFER_SIZE >256)
     volatile uint16_t rxStart=0;
     volatile uint16_t rxEnd  =0;
-#else	
+#else
     volatile uint8_t  rxStart=0;
     volatile uint8_t  rxEnd  =0;
 #endif
@@ -114,7 +134,14 @@ class HardwareSerial : public Stream {
 	USART_Buf_TypeDef *buf = NULL;
     USART_TypeDef *instance = NULL;
 
-  private: 
+  private:
+    bool allocBuffer(USART_Mode_TypeDef initialMode);
+    bool isLeuartInstance(void);
+    bool txPeripheralReady(void);
+    bool txShiftRegisterEmpty(void);
+    void txByteDirect(uint8_t ch);
+    bool drainTxPolled(void);
+    bool waitTxSpace(void);
     void initPort(void);
     void initSerialGpio(void);
     void initSpiGpio(USART_Mode_TypeDef  spiMode);
@@ -135,7 +162,7 @@ class HardwareSerial : public Stream {
  	extern HardwareSerial SerialUSART2;
 #endif
 #if defined(USART3) && (USE_USART3 >0)
- 	extern HardwareSerial Serial3;
+ 	extern HardwareSerial SerialUSART3;
 #endif
 #if defined(USART4) && (USE_USART4 >0)
  	extern HardwareSerial SerialUSART4;
@@ -158,7 +185,15 @@ class HardwareSerial : public Stream {
     extern HardwareSerial SerialLEUART1;
 #endif
 
+/* Backwards compatibility: the USART0 object used to be *defined* as Serial0
+ * while it was *declared* here as SerialUSART0, so the boards.txt USART0 menu
+ * entry (-DMENU_SERIAL=SerialUSART0) did not link. The definition is
+ * SerialUSART0 now; keep the old spelling working for existing sketches. */
+#if defined(USART0) && (USE_USART0 >0)
+ 	#define Serial0 SerialUSART0
+#endif
+
 #ifdef MENU_SERIAL
    #define Serial MENU_SERIAL
-#endif	
+#endif
 #endif

@@ -1,26 +1,20 @@
 #include "efm32.h"
 
+/* The clock sources themselves are implemented once in the core
+ * (cores/arduino/efm32/efm32init.c). This file only picks one.
+ *
+ * Previously each variant carried its own copy of the HFRCO band table - with
+ * different, partly wrong thresholds - while HFXO_/LFXO_/enter_DefaultMode_
+ * from_RESET() were either a no-op or not defined at all. */
+
 void SystemClock_Config(void) __attribute__ ((weak));
+
 void SystemClock_Config(void) {
-#ifdef USE_HFXO
-    HFXO_enter_DefaultMode_from_RESET();   //2    select  extern high Frequency osc Clock
+#if   defined(USE_HFXO)
+    HFXO_enter_DefaultMode_from_RESET();   /* external high frequency crystal */
 #elif defined(USE_LFXO)
-    LFXO_enter_DefaultMode_from_RESET();   //2 or select internal LOW Frequency RC Clock
-#elif defined(USE_HFRCO) /*as default*/
-	/* Using HFRCO at 14MHz as high frequency clock, HFCLK */
-	CMU_ClockSelectSet(cmuClock_HF, cmuSelect_HFRCO);
-# if    F_CPU > 21000000L	
-	CMU_HFRCOBandSet(cmuHFRCOBand_28MHz);
-# elif  F_CPU > 14000000L
-	CMU_HFRCOBandSet(cmuHFRCOBand_21MHz);
-# elif  F_CPU < 14000000L
-	CMU_HFRCOBandSet(cmuHFRCOBand_11MHz);
-# else	
-//	CMU_HFRCOBandSet(cmuHFRCOBand_14MHz); default 14M
-# endif
-	/* Enable peripheral clock */
-	CMU_ClockEnable(cmuClock_HFPER, true);  
-#else/*default mode*/
-    enter_DefaultMode_from_RESET();        //2 or select internal High Frequency RC Clock
+    LFXO_enter_DefaultMode_from_RESET();   /* external low frequency crystal  */
+#else                                      /* USE_HFRCO, and the default      */
+    enter_DefaultMode_from_RESET();        /* internal high frequency RC      */
 #endif
 }

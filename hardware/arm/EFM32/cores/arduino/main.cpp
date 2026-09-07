@@ -43,6 +43,9 @@ int main()
 	setup();
     while(1)
     {
+#if USE_WDOG > 0
+      wdogFeed();
+#endif
 #if USE_CORECALLBACK > 0
       coreCallback();
 #endif

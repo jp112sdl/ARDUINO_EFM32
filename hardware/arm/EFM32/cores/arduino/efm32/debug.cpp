@@ -53,7 +53,10 @@ int efm32SetPrintOutput(Print *p) {
         return 0;
     }
 
-    while(print != NULL);
+    /* This used to spin until print became NULL, but nothing except an
+     * explicit efm32SetPrintOutput(NULL) ever clears it - so a second call
+     * from thread context hung forever. The isInterrupt() guard above already
+     * covers the case this was meant to protect against. */
     print = p;
 
     return print_fileno;
@@ -189,6 +192,27 @@ void _Error_Handler(char* file, uint32_t line){
 	yield();	
 }
 
+/***************************************************************************//**
+ * @brief
+ *   Terminal action taken once a fault has been reported.
+ *
+ *   Spinning in while(1) turns every fault into a permanent freeze that is
+ *   indistinguishable from a hang: no output, no reset, nothing in the log.
+ *   Reset instead so the device comes back and RMU->RSTCAUSE records what
+ *   happened. While a debugger is attached, halt as before so the fault can
+ *   be inspected. Set USE_FAULT_RESET to 0 to always halt.
+ ******************************************************************************/
+extern "C"
+void faultExit(void)
+{
+#if USE_FAULT_RESET
+  if (!DBG_Connected()) {
+    NVIC_SystemReset();     /* does not return */
+  }
+#endif
+  for (;;) { }
+}
+
 #if USE_HARDFAUILTHOOK
 extern "C"
 void ProcessHardFault(uint32_t lr, uint32_t msp, uint32_t psp)
@@ -214,7 +238,7 @@ void ProcessHardFault(uint32_t lr, uint32_t msp, uint32_t psp)
     if((psr & (1 << 24)) == 0)
     {
         debug("PSR T bit is 0.\nHard fault caused by changing to ARM mode!\n");
-        while(1);
+        faultExit();
     }
     /* Check hard fault caused by ISR */
     exception_num = psr & xPSR_ISR_Msk;
@@ -240,7 +264,7 @@ void ProcessHardFault(uint32_t lr, uint32_t msp, uint32_t psp)
     
         debug("Hard fault is caused in IRQ #%d\n", exception_num - 16);
     
-          while(1);
+          faultExit();
     }
 
 
@@ -263,7 +287,7 @@ void ProcessHardFault(uint32_t lr, uint32_t msp, uint32_t psp)
     debug("pc  = 0x%x\n", pc);
     debug("psr = 0x%x\n", psr);
 
-    while(1);
+    faultExit();
 
 }
 
@@ -303,7 +327,12 @@ void assertEFM(const char* file, int line)
 	while(1)
 		yield();
 };
+#endif /* DEBUG_EFM */
 
+/* The fault handlers below are compiled unconditionally. When they were built
+ * only for DEBUG_EFM, a release build fell through to the CMSIS
+ * Default_Handler - an endless loop with no output and no reset, which is
+ * exactly what a "the board randomly freezes" report looks like. */
 
  /**
 * @brief This function handles Hard fault interrupt.
@@ -312,17 +341,24 @@ extern "C"
 void HardFault_Handler(void)
 {
 #if USE_HARDFAUILTHOOK
+  /* Pass (lr, stackPointer, stackPointer) to match the hook's
+   * (lr, msp, psp) signature - it reads the frame through the second
+   * argument. The previous version left r0 holding the stack pointer and r1
+   * holding whatever the faulting code had left there, so the hook decoded a
+   * garbage stack frame. */
   __asm volatile(
-  " tst lr, #4   \n" 
-  " ite eq       \n" 
-  " mrseq r0,msp \n"
-  " mrsne r0,psp \n"
+  " tst lr, #4   \n"
+  " ite eq       \n"
+  " mrseq r1,msp \n"
+  " mrsne r1,psp \n"
+  " mov r0, lr   \n"
+  " mov r2, r1   \n"
   " b hard_fault_handler_hook \n"
   );
 #else
 	errorCallback((char*)"HardFault",31);
 #endif
-    while(1);
+    faultExit();
 }
 
 /**
@@ -332,7 +368,7 @@ extern "C"
 void MemManage_Handler(void)
 {
 	errorCallback((char*)"MemFault",32);
-    while(1);
+    faultExit();
 }
 
 /**
@@ -342,7 +378,7 @@ extern "C"
 void BusFault_Handler(void)
 {
 	errorCallback((char*)"BusFault",33);
-    while(1);
+    faultExit();
 }
 
 /**
@@ -352,6 +388,5 @@ extern "C"
 void UsageFault_Handler(void)
 {
 	errorCallback((char*)"UsageFault",34);
-    while(1);
+    faultExit();
 }
-#endif

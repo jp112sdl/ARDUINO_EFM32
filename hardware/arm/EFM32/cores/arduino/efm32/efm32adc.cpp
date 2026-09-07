@@ -28,6 +28,12 @@
 #define adcFreq   400000
 #endif
 
+/* Iteration limit for the conversion-complete spin in analogReadChannel().
+ * Roughly 10 ms at 28 MHz, against a conversion time of a few microseconds. */
+#ifndef ADC_CONVERSION_SPIN
+#define ADC_CONVERSION_SPIN  100000UL
+#endif
+
 //ADC_Res_TypeDef:
 //  adcRes12Bit = _ADC_SINGLECTRL_RES_12BIT, /**< 12 bit sampling. */
 //  adcRes8Bit  = _ADC_SINGLECTRL_RES_8BIT,  /**< 8 bit sampling. */
@@ -87,20 +93,25 @@ int analogGetReference(void) {
 //  adcSingleInputCh4Ch5   = _ADC_SINGLECTRL_INPUTSEL_CH4CH5,   /**< Positive Ch4, negative Ch5. */
 //  adcSingleInputCh6Ch7   = _ADC_SINGLECTRL_INPUTSEL_CH6CH7,   /**< Positive Ch6, negative Ch7. */
 //  adcSingleInputDiff0    = 4                                  /**< Differential 0. */
-static uint8_t adcinited = 0;
+/* HFPERCLK frequency the ADC was last initialised for, 0 = not yet. Timebase
+ * and prescaler are derived from it, so a clock change has to re-run ADC_Init
+ * - the old `adcinited` flag latched the very first frequency forever. */
+static uint32_t adcInitFreq = 0;
 
 extern "C"
 int analogReadChannel(ADC_SingleInput_TypeDef adcSingleInputChx, uint8_t diff) {
 
-  if (adcinited == 0) {
-    adcinited = 1;
+  uint32_t hfperFreq = CMU_ClockFreqGet(cmuClock_HFPER);
+
+  if (adcInitFreq != hfperFreq) {
     ADC_Init_TypeDef init = ADC_INIT_DEFAULT;  // Declare init structs
     CMU_ClockEnable(cmuClock_ADC0, true);  // Enable ADC0 clock
 
     // Modify init structs and initialize
-    init.timebase = ADC_TimebaseCalc(0);
-    init.prescale = ADC_PrescaleCalc(adcFreq, 0); // Init to max ADC clock for Series 0
+    init.timebase = ADC_TimebaseCalc(hfperFreq);
+    init.prescale = ADC_PrescaleCalc(adcFreq, hfperFreq); // Init to max ADC clock for Series 0
     ADC_Init(ADC0, &init);
+    adcInitFreq = hfperFreq;
   }
 
   ADC_InitSingle_TypeDef initSingle = ADC_INITSINGLE_DEFAULT;
@@ -114,7 +125,13 @@ int analogReadChannel(ADC_SingleInput_TypeDef adcSingleInputChx, uint8_t diff) {
   ADC_InitSingle(ADC0, &initSingle);
   ADC_Start(ADC0, adcStartSingle); // Start ADC conversion
 
-  while (!(ADC0->STATUS & _ADC_STATUS_SINGLEDV_MASK)); // Wait for conversion to be complete
+  /* Bounded wait: an unclocked or misconfigured ADC would otherwise hang the
+   * whole program here. A conversion takes a few microseconds, so the spin
+   * limit is several orders of magnitude more than needed. */
+  uint32_t spin = ADC_CONVERSION_SPIN;
+  while (!(ADC0->STATUS & _ADC_STATUS_SINGLEDV_MASK)) {
+    if (--spin == 0) return -1;  // conversion never completed
+  }
 
   return  ADC_DataSingleGet(ADC0);// Get ADC result
 }

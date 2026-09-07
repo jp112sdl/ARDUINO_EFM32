@@ -63,6 +63,9 @@ extern "C" {
 
 void errorLedBlink(char* file, uint32_t n);
 void _Error_Handler(char* file, uint32_t line);
+/* Terminal action after a fault: reset, or halt when a debugger is attached.
+ * See USE_FAULT_RESET. Never returns. */
+void faultExit(void);
 // Internal: use PRINT_XXX instead
 void print_log(const char *level, const char *format, const char *file, const int line, ...);
 
