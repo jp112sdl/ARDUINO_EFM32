@@ -223,6 +223,50 @@
                      "packager" : "arduino"
                    }
                ]
+            },
+            {
+               "version" : "2026.9.7",
+               "name" : "EFM32(T)Gxxx boards",
+               "boards" : [
+                  {
+                     "name" : "EFM32G200"
+                  },
+                  {
+                     "name" : "EFM32G222"
+                  },
+                  {
+                     "name" : "EFM32G840"
+                  },
+                  {
+                     "name" : "EFM32G890"
+                  },
+                  {
+                     "name" : "EFM32TG110"
+                  }
+               ],
+               "size" : 26544911,
+               "checksum" : "SHA-256:a19413dc375b1f8427f643444e23ed2bda3242c5089ee461c1b135893b256702",
+               "architecture" : "EFM32",
+               "url" : "https://github.com/jp112sdl/ARDUINO_EFM32/raw/master/package/ARDUINO_EFM32-2026.9.7.tar.gz",
+               "archiveFileName" : "ARDUINO_EFM32-2022.8.11.tar.gz",
+               "category" : "EFM32",
+               "toolsDependencies" : [
+                  {
+                     "version" : "2026.9.7",
+                     "name" : "efm32tools",
+                     "packager" : "jp112sdl"
+                  },
+                  {
+                     "packager": "arduino",
+                     "name": "openocd",
+                     "version": "0.11.0-arduino2"
+                   },
+                   {
+                     "version" : "7-2017q4",
+                     "name" : "arm-none-eabi-gcc",
+                     "packager" : "arduino"
+                   }
+               ]
             }
          ],
          "tools" : [
@@ -426,6 +470,47 @@
                      "checksum" : "SHA-256:6d3a4c5ce36a7911e9db5aa69566b10d64685205db5f77f69965091d1b4d3eb1",
                      "url" : "https://github.com/jp112sdl/ARDUINO_EFM32/raw/master/package/efm32tools_linux64-2022.8.11.tar.gz",
                      "archiveFileName" : "efm32tools_linux64-2022.8.11.tar.gz",
+                     "size" : 235,
+                     "host" : "i686-pc-linux-gnu"
+                  }
+               ]
+            },
+            {
+               "name" : "efm32tools",
+               "version" : "2026.9.7",
+               "systems" : [
+                  {
+                     "checksum" : "SHA-256:064c6fb786295905203ce3543067f5aab8a843f9e3efbdb7935d18c4ef9958f2",
+                     "url" : "https://github.com/jp112sdl/ARDUINO_EFM32/raw/master/package/efm32tools_win-2026.9.7.tar.gz",
+                     "archiveFileName" : "efm32tools_win-2026.9.7.tar.gz",
+                     "size" : 237,
+                     "host" : "i686-mingw32"
+                  },
+                  {
+                     "checksum" : "SHA-256:e2a8d40fb2d249b489b9301237d5baccc5fcb19a4371a4f848c1d82840509ece",
+                     "url" : "https://github.com/jp112sdl/ARDUINO_EFM32/raw/master/package/efm32tools_macosx-2026.9.7.tar.gz",
+                     "archiveFileName" : "efm32tools_macosx-2026.9.7.tar.gz",
+                     "host" : "x86_64-apple-darwin",
+                     "size" : 235
+                  },
+                  {
+                     "checksum" : "SHA-256:e2a8d40fb2d249b489b9301237d5baccc5fcb19a4371a4f848c1d82840509ece",
+                     "url" : "https://github.com/jp112sdl/ARDUINO_EFM32/raw/master/package/efm32tools_macosx-2026.9.7.tar.gz",
+                     "archiveFileName" : "efm32tools_macosx-2026.9.7.tar.gz",
+                     "size" : 235,
+                     "host" : "i386-apple-darwin"
+                  },
+                  {
+                     "checksum" : "SHA-256:e2a8d40fb2d249b489b9301237d5baccc5fcb19a4371a4f848c1d82840509ece",
+                     "url" : "https://github.com/jp112sdl/ARDUINO_EFM32/raw/master/package/efm32tools_linux64-2026.9.7.tar.gz",
+                     "archiveFileName" : "efm32tools_linux64-2026.9.7.tar.gz",
+                     "host" : "x86_64-pc-linux-gnu",
+                     "size" : 235
+                  },
+                  {
+                     "checksum" : "SHA-256:e2a8d40fb2d249b489b9301237d5baccc5fcb19a4371a4f848c1d82840509ece",
+                     "url" : "https://github.com/jp112sdl/ARDUINO_EFM32/raw/master/package/efm32tools_linux64-2026.9.7.tar.gz",
+                     "archiveFileName" : "efm32tools_linux64-2026.9.7.tar.gz",
                      "size" : 235,
                      "host" : "i686-pc-linux-gnu"
                   }
